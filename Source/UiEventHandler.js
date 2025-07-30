@@ -1,4 +1,6 @@
 
+var tfe = ThisCouldBeBetter.TarFileExplorer;
+var TarFile = tfe.TarFile;
 class UiEventHandler
 {
 	static buttonSaveAsPngs_Clicked()
@@ -53,7 +55,72 @@ class UiEventHandler
 
 	static buttonSaveAsTar_Clicked()
 	{
-		alert("Not yet implemented!");
+		var d = document;
+		var divSignatureImages =
+			d.getElementById("divSignatureImages");
+		var signatureSheetsAsDivElements =
+			divSignatureImages.children;
+
+		var sidesPerSheet = 2;
+
+		var signatureSidesAsTarFileEntries = [];
+
+		for (var i = 0; i < signatureSheetsAsDivElements.length; i++)
+		{
+			var signatureSheetIndex = i;
+
+			var signatureSheetAsDivElement =
+				signatureSheetsAsDivElements[signatureSheetIndex];
+
+			var signatureSidesAsCanvases =
+				signatureSheetAsDivElement.children;
+
+			for (var j = 0; j < signatureSidesAsCanvases.length; j++)
+			{
+				var signatureSideIndexAbsolute =
+					signatureSheetIndex * sidesPerSheet + j;
+
+				var signatureSideIndexAbsolutePadded =
+					("" + signatureSideIndexAbsolute).padStart(2, "0");
+
+				var signatureSideAsCanvas =
+					signatureSidesAsCanvases[j];
+
+				var signatureSideAsDataUrl =
+					signatureSideAsCanvas.toDataURL("image/png");
+
+				var signatureSideAsBase64 =
+					signatureSideAsDataUrl.split("data:image/png;base64,")[1];
+				var signatureSideAsBinaryString =
+					atob(imageProcessedAsBase64);
+				var signatureSideAsBinaryStringChars =
+					signatureSideAsBinaryString.split("");
+				var signatureSideAsBytes =
+					signatureSideAsBinaryStringChars.map(x => x.charCodeAt(0));
+				var signatureSideFileName =
+					"_"
+					+ signatureSideIndexAbsolutePadded
+					+ ".png";
+				var signatureSideAsTarFileEntry = TarFileEntry.fileNew
+				(
+					signatureSideFileName,
+					signatureSideAsBytes
+				);
+				signatureSidesAsTarFileEntries.push
+				(
+					imageProcessedAsTarFileEntry
+				);
+			}
+		}
+
+		var signatureFileName = "Signature_Sides.png.tar";
+		var signatureSidesAsTarFile = TarFile.fromNameAndEntries
+		(
+			signatureFileName,
+			signatureSidesAsTarFileEntries
+		);
+		signatureSidesAsTarFile.download();
+
 	}
 
 	static buttonImpose_Clicked()
@@ -225,10 +292,49 @@ class UiEventHandler
 			fileReader.onload = (event) =>
 			{
 				var fileAsDataUrl = event.target.result;
-				var fileAsImgElement = d.createElement("img");
-				fileAsImgElement.src = fileAsDataUrl;
-				divPageImagesLoaded.appendChild(fileAsImgElement);
+
+				var fileType = file.type;
+				if (fileType == "image/png")
+				{
+					var fileAsImgElement = d.createElement("img");
+					fileAsImgElement.src = fileAsDataUrl;
+					divPageImagesLoaded.appendChild(fileAsImgElement);
+				}
+				else if (fileType == "application/x-tar")
+				{
+					var fileAsBase64 = fileAsDataUrl.split(",")[1];
+					var fileAsBinaryString = atob(fileAsBase64);
+					var fileAsBytes =
+						fileAsBinaryString
+							.split("")
+							.map(x => x.charCodeAt(0) );
+					var fileAsTarFile =
+						TarFile.fromNameAndBytes
+						(
+							file.name, fileAsBytes
+						);
+					var signatureSidesAsTarFileEntries = fileAsTarFile.entries;
+					for (var ss = 0; ss < signatureSidesAsTarFileEntries.length; ss++)
+					{
+						var signatureSideAsTarFileEntry =
+							signatureSidesAsTarFileEntries[ss];
+						var signatureSideAsBytes =
+							signatureSideAsTarFileEntry.dataAsBytes;
+						var signatureSideAsBase64 = btoa(signatureSideAsBytes);
+						var signatureSideAsDataUrl = 
+							"data:image/png;base64," + signatureSideAsBase64;
+						var signatureSideAsImgElement =
+							d.createElement("img");
+						signatureSideAsImgElement.src = signatureSideAsDataUrl;
+						divPageImagesLoaded.appendChild(signatureSideAsImgElement);
+					}
+				}
+				else
+				{
+					alert("Unrecognized file type: " + fileType + ".");
+				}
 			};
+
 			fileReader.readAsDataURL(file);
 		}
 	}
